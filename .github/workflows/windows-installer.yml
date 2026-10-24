@@ -1,0 +1,41 @@
+name: Build Windows installer
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure application source was uploaded
+        shell: pwsh
+        run: |
+          foreach ($p in @('app/main.py','windows/VibeQAMaster.spec','windows/smoke-windows.ps1','windows/verify-installer.ps1','windows/installer.iss','requirements.txt')) {
+            if (!(Test-Path $p)) { throw "Missing source file: $p. Import v9 package first." }
+          }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements.txt 'pyinstaller>=6,<7' pytest
+      - run: python -m pytest -q
+      - run: python -m PyInstaller --noconfirm --clean windows/VibeQAMaster.spec
+      - shell: pwsh
+        run: ./windows/smoke-windows.ps1
+      - shell: pwsh
+        run: |
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $iscc)) { throw 'Inno Setup 6 is missing' }
+          & $iscc windows\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - shell: pwsh
+        run: ./windows/verify-installer.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VibeCodeQAMaster-Windows-unsigned
+          path: |
+            release/VibeCodeQAMaster-Setup.exe
+            release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
