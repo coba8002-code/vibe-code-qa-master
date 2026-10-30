@@ -10,6 +10,7 @@ from pathlib import Path
 from tkinter import messagebox, filedialog
 import webbrowser
 import tempfile
+import json
 
 import uvicorn
 
@@ -126,6 +127,20 @@ class Launcher:
 
 
 def main():
+    if len(sys.argv) == 5 and sys.argv[1] == '--scan-github' and sys.argv[3] == '--report':
+        # Explicit diagnostic mode exercises the same authenticated HTTP route
+        # as the browser, including the packaged private-repository code path.
+        from fastapi.testclient import TestClient
+        from app.main import app
+        secret = secrets.token_urlsafe(32)
+        os.environ['QA_ADMIN_TOKEN'] = secret
+        with TestClient(app) as client:
+            response = client.post('/api/quick-scan/github',
+                headers={'Authorization': 'Bearer ' + secret}, json={'url': sys.argv[2]})
+        Path(sys.argv[4]).write_text(json.dumps({'version': app.version,
+            'http_status': response.status_code, 'result': response.json()},
+            ensure_ascii=False, indent=2), encoding='utf-8')
+        sys.exit(0 if response.status_code == 200 else 1)
     if len(sys.argv) == 2 and sys.argv[1] == "--self-check":
         self_check()
         return

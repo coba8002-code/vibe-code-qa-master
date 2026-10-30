@@ -20,12 +20,13 @@ from app.scanner import scan, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES
 from app import runtime, loadtest
 from app.github_read import fetch_snapshot, SnapshotError
 from app.github_url import parse_repository
+from app.github_auth import github_token, github_error
 
 ROOT = Path(__file__).resolve().parent.parent
 if getattr(__import__("sys"), "frozen", False):
     ROOT = Path(__import__("sys")._MEIPASS)
 DB_PATH = Path(os.getenv("QA_DB_PATH", str(ROOT / "data" / "qa.sqlite3")))
-app = FastAPI(title="VIBE CODE QA MASTER", version="0.8.0-rc2")
+app = FastAPI(title="VIBE CODE QA MASTER", version="0.8.0-rc3")
 CATEGORIES = ("security", "functional", "performance", "resources", "hardtest")
 
 
@@ -184,7 +185,7 @@ def add_project(body: ProjectIn):
 
 @app.post("/api/github/discover", dependencies=[Depends(admin)])
 def discover():
-    token = os.getenv("QA_GITHUB_TOKEN", "")
+    token = github_token()
     if not token:
         raise HTTPException(412, "Read-only GitHub token not configured")
     count = 0
@@ -694,38 +695,12 @@ def quick_scan_github(body: GithubScanIn):
         owner, repo = parse_repository(body.url)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    token = os.getenv("QA_GITHUB_TOKEN", "")
-    headers = {"User-Agent": "vibe-qa-master", "Accept": "application/vnd.github+json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    request = urllib.request.Request(f"https://api.github.com/repos/{owner}/{repo}/zipball", headers=headers)
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = response.read(MAX_TOTAL_BYTES + 1)
-    except (urllib.error.URLError, TimeoutError) as exc:
-        raise HTTPException(502, "Unable to fetch repository (check permissions)") from exc
-    if len(payload) > MAX_TOTAL_BYTES:
-        raise HTTPException(413, "Repository archive too large for quick scan")
-    try:
-        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
-            items = []
-            total = 0
-            for info in archive.infolist():
-                if info.is_dir():
-                    continue
-                if len(items) >= MAX_FILES or info.file_size > MAX_FILE_BYTES:
-                    continue
-                total += info.file_size
-                if total > MAX_TOTAL_BYTES:
-                    raise HTTPException(413, "Expanded repository exceeds scan limit")
-                # Discard opaque top-level archive prefix and never extract to disk.
-                name = "/".join(info.filename.split("/")[1:])
-                if not name:
-                    continue
-                items.append((name, archive.read(info)))
-    except (zipfile.BadZipFile, RuntimeError) as exc:
-        raise HTTPException(502, "Invalid repository archive") from exc
-    result = scan(items, f"github:{owner}/{repo}")
+        snapshot = fetch_snapshot(owner, repo)
+    except SnapshotError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    result = snapshot['report']
     result['repository_url'] = f'https://github.com/{owner}/{repo}'
-    result['notice'] += ' 입력한 링크의 저장소 기본 브랜치 전체를 검사합니다. 특정 파일·브랜치·PR만 검사하지 않습니다.'
+    result['revision'] = snapshot['revision']
+    result['notice'] += ' 입력한 링크의 저장소 기본 브랜치 전체를 대상으로 제한된 정적 검사를 수행합니다. 건너뛴 파일은 검사하지 않았습니다.'
     return result

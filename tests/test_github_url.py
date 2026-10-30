@@ -40,12 +40,16 @@ def test_quick_scan_normalizes_link_before_fetch(monkeypatch):
     requests = []
     def fetch(request, timeout):
         requests.append(request.full_url)
+        if request.full_url.endswith('/demo/sample'):
+            return io.BytesIO(b'{"default_branch":"main"}')
+        if request.full_url.endswith('/commits/main'):
+            return io.BytesIO(('{"sha":"' + 'a' * 40 + '"}').encode())
         return io.BytesIO(payload.getvalue())
     monkeypatch.setattr(main.urllib.request, 'urlopen', fetch)
     client = TestClient(main.app)
     response = client.post('/api/quick-scan/github', headers={'Authorization': 'Bearer test-only-url-token'},
                            json={'url': 'github.com/demo/sample/blob/main/app.py'})
     assert response.status_code == 200
-    assert requests == ['https://api.github.com/repos/demo/sample/zipball']
+    assert requests[-1] == 'https://api.github.com/repos/demo/sample/zipball/' + 'a' * 40
     assert response.json()['repository_url'] == 'https://github.com/demo/sample'
     assert response.json()['files_scanned'] == 1
