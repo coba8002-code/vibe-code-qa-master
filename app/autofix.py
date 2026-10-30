@@ -12,6 +12,7 @@ import time
 import uuid
 
 from app import runtime
+from app.external_tools import find_tool
 from app.scanner import scan, EXCLUDE
 
 _lock = threading.Lock()
@@ -34,7 +35,7 @@ def root():
 
 
 def capabilities():
-    return {'codex': bool(shutil.which('codex')), 'docker': bool(shutil.which('docker')),
+    return {'codex': bool(find_tool('codex')), 'docker': bool(find_tool('docker')),
             'provider': 'codex', 'max_rounds': 3,
             'note': 'Codex 로그인과 Docker 엔진/로컬 이미지가 필요합니다. 원본 변경 없이 복사본에서만 수정합니다.'}
 
@@ -135,7 +136,7 @@ def apply_proposal(folder, files, proposal):
 
 
 def propose(files, failure, destination):
-    executable = shutil.which('codex')
+    executable = find_tool('codex')
     if not executable:
         raise ValueError('Codex CLI 설치 및 로그인이 필요합니다')
     with tempfile.TemporaryDirectory(prefix='proposal-', dir=destination) as temporary:
@@ -243,7 +244,7 @@ def start(project_id, rounds):
     okay, reason = runtime._docker_available(project['type'])
     if not okay:
         raise ValueError(reason)
-    if not shutil.which('codex'):
+    if not find_tool('codex'):
         raise ValueError('Codex CLI 설치 및 로그인이 필요합니다')
     with _lock:
         if _active:

@@ -7,6 +7,7 @@ import threading
 import time
 import uuid
 from pathlib import Path
+from app.external_tools import find_tool
 
 
 _lock = threading.Lock()
@@ -78,8 +79,9 @@ def _parse_bytes(value):
 
 
 def _sample(container_name):
-    result = subprocess.run(["docker", "stats", "--no-stream", "--format", "{{json .}}", container_name],
-                            capture_output=True, text=True, timeout=5, check=False)
+    result = subprocess.run([find_tool('docker') or 'docker', "stats", "--no-stream", "--format", "{{json .}}", container_name],
+                            capture_output=True, text=True, timeout=5, check=False,
+                            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     if result.returncode:
         return None
     data = json.loads(result.stdout.splitlines()[0])
@@ -88,11 +90,12 @@ def _sample(container_name):
 
 
 def _docker_available(project_type):
-    if not shutil.which("docker"):
+    if not find_tool('docker'):
         return False, "Docker Desktop이 설치되지 않았습니다"
     try:
-        result = subprocess.run(["docker", "image", "inspect", IMAGES[project_type]],
-                                capture_output=True, timeout=8, check=False)
+        result = subprocess.run([find_tool('docker'), "image", "inspect", IMAGES[project_type]],
+                                capture_output=True, timeout=8, check=False,
+                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     except (OSError, subprocess.TimeoutExpired):
         return False, "Docker 엔진에 연결할 수 없습니다"
     if result.returncode:
@@ -147,7 +150,7 @@ def _run(job_id, project, duration):
                 break
             name = "vibeqa-" + uuid.uuid4().hex[:18]
             directory = project["path"]
-            command = ["docker", "run", "--rm", "--name", name, "--network", "none",
+            command = [find_tool('docker') or 'docker', "run", "--rm", "--name", name, "--network", "none",
                        "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                        "--pids-limit", "64", "--cpus", "1.0", "--memory", "512m",
                        "--memory-swap", "512m", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
@@ -155,7 +158,8 @@ def _run(job_id, project, duration):
                        "--mount", f"type=bind,source={directory},target=/src,readonly",
                        "--workdir", "/src", "--env", "PYTHONDONTWRITEBYTECODE=1",
                        IMAGES[project["type"]], *RECIPES[project["type"]]]
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             chunks = []
             # A dedicated bounded reader prevents deadlocks if a test prints heavily.
             def drain():
@@ -183,7 +187,8 @@ def _run(job_id, project, duration):
             if process.poll() is None:
                 timed_out = True
                 # The exact random-name container is the only termination target.
-                subprocess.run(["docker", "rm", "--force", name], capture_output=True, timeout=8, check=False)
+                subprocess.run([find_tool('docker') or 'docker', "rm", "--force", name], capture_output=True, timeout=8, check=False,
+                               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
                 try:
                     process.wait(timeout=5)
                 except subprocess.TimeoutExpired:

@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if getattr(__import__("sys"), "frozen", False):
     ROOT = Path(__import__("sys")._MEIPASS)
 DB_PATH = Path(os.getenv("QA_DB_PATH", str(ROOT / "data" / "qa.sqlite3")))
-app = FastAPI(title="VIBE CODE QA MASTER", version="0.9.0-rc1")
+app = FastAPI(title="VIBE CODE QA MASTER", version="0.9.0-rc2")
 CATEGORIES = ("security", "functional", "performance", "resources", "hardtest")
 _browser_bootstraps = {}
 _bootstrap_lock = threading.Lock()

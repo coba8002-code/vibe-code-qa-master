@@ -33,8 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
 async function refreshAutoFix() {
   try {
     const jobs = await call('/api/autofix/jobs');
+    const opened = new Set(Array.from($('autoFixJobs').querySelectorAll('details[open]')).map(el => el.dataset.job));
     $('autoFixJobs').innerHTML = jobs.map(j => '<div><b>' + esc(j.project) + ' · ' + esc(j.state) + '</b><p>' + esc(j.message || '') + '</p>' +
-      '<details><summary>기준 테스트 및 재검사 결과</summary><pre style="white-space:pre-wrap">' + esc(JSON.stringify(j, null, 2)) + '</pre></details>' +
+      '<details data-job="' + esc(j.id) + '"' + (opened.has(j.id) ? ' open' : '') + '><summary>기준 테스트 및 재검사 결과</summary><pre style="white-space:pre-wrap">' + esc(JSON.stringify(j, null, 2)) + '</pre></details>' +
       (j.rounds.length ? '<button data-patch="' + esc(j.id) + '">수정 패치 다운로드</button>' : '') + '</div>').join('') || '자동 수정 이력 없음';
     $('autoFixJobs').querySelectorAll('[data-patch]').forEach(button => button.onclick = async () => {
       const response = await fetch('/api/autofix/jobs/' + button.dataset.patch + '/patch', {headers: {Authorization: 'Bearer ' + $('token').value}});
