@@ -16,6 +16,12 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python -m compileall -q app
       - run: python -m pytest -q
+      - name: Prepare isolated runtime image
+        run: docker pull python:3.12-slim
+      - name: Real Docker execution and AI proposal replay
+        env:
+          QA_DOCKER_INTEGRATION: '1'
+        run: python -m pytest tests/test_autofix.py -q --junitxml=qa-artifacts/runtime-tests.xml
       - name: Security baseline (Python dependencies)
         run: |
           python -m pip install pip-audit
@@ -29,5 +35,5 @@ jobs:
         if: always()
         with:
           name: qa-master-baseline-report
-          path: qa-artifacts/report.md
+          path: qa-artifacts/
           retention-days: 14

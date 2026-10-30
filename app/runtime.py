@@ -43,6 +43,13 @@ def projects():
                 for key, value in _projects.items()]
 
 
+def project_details(project_id):
+    with _lock:
+        if project_id not in _projects:
+            raise ValueError('PC에서 프로젝트 폴더를 먼저 승인하세요')
+        return dict(_projects[project_id])
+
+
 def jobs():
     with _lock:
         return [dict(item) for item in reversed(list(_jobs.values()))]
@@ -132,6 +139,7 @@ def _run(job_id, project, duration):
     memory_samples = []
     output = []
     exit_code = None
+    timed_out = False
     try:
         while True:
             elapsed = time.monotonic() - start_time
@@ -173,6 +181,7 @@ def _run(job_id, project, duration):
                     pass
                 time.sleep(0.3)
             if process.poll() is None:
+                timed_out = True
                 # The exact random-name container is the only termination target.
                 subprocess.run(["docker", "rm", "--force", name], capture_output=True, timeout=8, check=False)
                 try:
@@ -191,11 +200,11 @@ def _run(job_id, project, duration):
             if exit_code != 0 or _jobs[job_id]["mode"] == "functional":
                 break
         output_text = "\n".join(output)[-MAX_OUTPUT:]
-        if cycles == 0:
+        if cycles == 0 or timed_out:
             status = "timed_out"
         elif exit_code != 0:
             status = "failed"
-        elif re.search(r"Ran 0 tests\b|# tests 0\b", output_text):
+        elif re.search(r"Ran 0 tests\b|# tests 0\b", output_text) or not re.search(r"Ran [1-9][0-9]* tests?\b|# tests [1-9][0-9]*\b", output_text):
             status = "no_tests"
         elif _jobs[job_id]["mode"] == "soak" and time.monotonic() - start_time < duration:
             status = "failed"

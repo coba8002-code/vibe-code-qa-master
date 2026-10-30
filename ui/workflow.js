@@ -14,7 +14,36 @@ document.addEventListener('DOMContentLoaded', () => {
   result.textContent = 'Windows 실행·설치 및 실제 프로젝트 검증은 별도 확인이 필요합니다.';
   section.append(heading, button, result);
   document.querySelector('main').append(section);
+  const repair = document.createElement('div');
+  repair.className = 'panel';
+  repair.innerHTML = '<h3>AI 자동 수정 · 재검사</h3><p>위에서 선택한 실행 검사 폴더의 복사본을 테스트하고, 실패하면 Codex 수정과 재검사를 최대 2회 진행합니다. 테스트 파일은 변경하지 않습니다. 소스가 로그인된 Codex에 전송되며 원본과 GitHub는 변경하지 않습니다.</p><button id="autoFixStart">선택한 폴더 자동 수정</button> <button id="autoFixRefresh">결과 새로고침</button><div id="autoFixJobs"></div>';
+  document.querySelector('main').append(repair);
+  $('autoFixStart').onclick = async () => {
+    try {
+      const project_id = $('runtimeProject').value;
+      if (!project_id) throw Error('실행 검사 폴더를 먼저 선택하세요');
+      await call('/api/autofix/jobs', 'POST', {project_id, rounds: 2});
+      msg('복사본에서 자동 수정 시작'); await refreshAutoFix();
+    } catch (e) { msg('자동 수정 시작 실패: ' + e.message); }
+  };
+  $('autoFixRefresh').onclick = refreshAutoFix;
+  setInterval(() => { if ($('token').value) refreshAutoFix().catch(() => {}); }, 5000);
 });
+
+async function refreshAutoFix() {
+  try {
+    const jobs = await call('/api/autofix/jobs');
+    $('autoFixJobs').innerHTML = jobs.map(j => '<div><b>' + esc(j.project) + ' · ' + esc(j.state) + '</b><p>' + esc(j.message || '') + '</p>' +
+      '<details><summary>기준 테스트 및 재검사 결과</summary><pre style="white-space:pre-wrap">' + esc(JSON.stringify(j, null, 2)) + '</pre></details>' +
+      (j.rounds.length ? '<button data-patch="' + esc(j.id) + '">수정 패치 다운로드</button>' : '') + '</div>').join('') || '자동 수정 이력 없음';
+    $('autoFixJobs').querySelectorAll('[data-patch]').forEach(button => button.onclick = async () => {
+      const response = await fetch('/api/autofix/jobs/' + button.dataset.patch + '/patch', {headers: {Authorization: 'Bearer ' + $('token').value}});
+      if (!response.ok) { msg('패치 다운로드 실패'); return; }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a'); link.href = url; link.download = 'autofix.patch'; link.click(); URL.revokeObjectURL(url);
+    });
+  } catch (e) { msg('자동 수정 이력 확인 실패: ' + e.message); }
+}
 
 async function connectFromLauncher() {
   const code = new URLSearchParams(location.hash.slice(1)).get('connect');

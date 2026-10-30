@@ -2,7 +2,7 @@
 
 독립형 개발 품질관리 플랫폼의 안전한 MVP. 외부 GitHub에 쓰지 않고 로컬에서 실행한다.
 
-**현재 상태: Windows Release Candidate (0.8.0-rc1) 소스. Windows 실행 파일 및 설치 검증 미완료.** 실제 출시는 [Release checklist](docs/RELEASE_CHECKLIST.md)의 게이트를 통과한 뒤 결정한다.
+**현재 상태: Windows Release Candidate (0.9.0-rc1).** rc4에서 실제 사용자 설치 및 비공개 GitHub 정적 검수를 확인했다. 0.9에서는 [자동 수정 및 실제 재검사](docs/AUTOFIX.md)를 추가했다. 전체 제품 출시 여부는 [Release checklist](docs/RELEASE_CHECKLIST.md)의 미완료 게이트와 구분한다.
 
 ## 시작
 

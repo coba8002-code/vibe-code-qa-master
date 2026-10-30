@@ -19,7 +19,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, File, Form, 
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from app.scanner import scan, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES
-from app import runtime, loadtest
+from app import runtime, loadtest, autofix
 from app.github_read import fetch_snapshot, SnapshotError
 from app.github_url import parse_repository
 from app.github_auth import github_token, github_error
@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if getattr(__import__("sys"), "frozen", False):
     ROOT = Path(__import__("sys")._MEIPASS)
 DB_PATH = Path(os.getenv("QA_DB_PATH", str(ROOT / "data" / "qa.sqlite3")))
-app = FastAPI(title="VIBE CODE QA MASTER", version="0.8.0-rc4")
+app = FastAPI(title="VIBE CODE QA MASTER", version="0.9.0-rc1")
 CATEGORIES = ("security", "functional", "performance", "resources", "hardtest")
 _browser_bootstraps = {}
 _bootstrap_lock = threading.Lock()
@@ -634,6 +634,41 @@ def summary():
 @app.get("/api/runtime/projects", dependencies=[Depends(admin)])
 def runtime_projects():
     return runtime.projects()
+
+
+class AutoFixIn(BaseModel):
+    project_id: str
+    rounds: int = Field(default=2, ge=1, le=3)
+
+
+@app.get('/api/autofix/capabilities', dependencies=[Depends(admin)])
+def autofix_capabilities():
+    return autofix.capabilities()
+
+
+@app.get('/api/autofix/jobs', dependencies=[Depends(admin)])
+def autofix_jobs():
+    return autofix.jobs()
+
+
+@app.post('/api/autofix/jobs', dependencies=[Depends(admin)])
+def start_autofix(body: AutoFixIn):
+    try:
+        return autofix.start(body.project_id, body.rounds)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
+
+
+@app.get('/api/autofix/jobs/{job_id}/patch', dependencies=[Depends(admin)])
+def autofix_patch(job_id: str):
+    try:
+        report = autofix.read_job(job_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    from fastapi.responses import PlainTextResponse
+    patch = autofix.root() / job_id / 'combined.patch'
+    text = patch.read_text(encoding='utf-8') if report['rounds'] and patch.exists() else ''
+    return PlainTextResponse(text, headers={'Content-Disposition': 'attachment; filename="autofix.patch"'})
 
 
 @app.get("/api/runtime/jobs", dependencies=[Depends(admin)])

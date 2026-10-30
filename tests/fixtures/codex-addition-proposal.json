@@ -1,0 +1,1 @@
+{"summary": "Fixed add to return the sum of its arguments.", "changes": [{"path": "calc.py", "content": "def add(a, b):\n    return a + b\n"}]}

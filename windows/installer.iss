@@ -1,5 +1,5 @@
 #define AppName "VIBE CODE QA MASTER"
-#define AppVersion "0.8.0-rc4"
+#define AppVersion "0.9.0-rc1"
 #define AppExe "VibeQAMaster.exe"
 
 [Setup]
@@ -27,3 +27,4 @@ Name: "desktopicon"; Description: "바탕화면 바로가기 만들기"; GroupDe
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "설치 후 실행"; Flags: nowait postinstall skipifsilent
+
