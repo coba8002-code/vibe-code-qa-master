@@ -1,6 +1,8 @@
-name: Build Windows installer
+name: Build Windows installer (manual)
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 permissions:
   contents: read
 jobs:
@@ -18,24 +20,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r requirements.txt 'pyinstaller>=6,<7' pytest
-      - run: python -m pytest -q
-      - run: python -m PyInstaller --noconfirm --clean windows/VibeQAMaster.spec
-      - shell: pwsh
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt "pyinstaller>=6,<7"
+      - name: Unit and security-policy tests
+        run: python -m pytest -q
+      - name: Build executable
+        run: python -m PyInstaller --noconfirm --clean windows/VibeQAMaster.spec
+      - name: Windows packaged executable smoke test
+        shell: pwsh
         run: ./windows/smoke-windows.ps1
-      - shell: pwsh
+      - name: Build per-user installer
+        shell: pwsh
         run: |
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
-          if (!(Test-Path $iscc)) { throw 'Inno Setup 6 is missing' }
+          if (!(Test-Path $iscc)) { throw 'Inno Setup 6 missing on runner' }
           & $iscc windows\installer.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - shell: pwsh
+      - name: Verify installer by silent install and startup
+        shell: pwsh
         run: ./windows/verify-installer.ps1
-      - uses: actions/upload-artifact@v4
+      - name: Upload unsigned installer
+        uses: actions/upload-artifact@v4
         with:
-          name: VibeCodeQAMaster-Windows-unsigned
+          name: VibeCodeQAMaster-Windows-Setup-unsigned
           path: |
             release/VibeCodeQAMaster-Setup.exe
             release/SHA256SUMS.txt
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 3
