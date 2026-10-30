@@ -8,6 +8,8 @@ import urllib.request
 import io
 import re
 import zipfile
+import threading
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,8 +28,32 @@ ROOT = Path(__file__).resolve().parent.parent
 if getattr(__import__("sys"), "frozen", False):
     ROOT = Path(__import__("sys")._MEIPASS)
 DB_PATH = Path(os.getenv("QA_DB_PATH", str(ROOT / "data" / "qa.sqlite3")))
-app = FastAPI(title="VIBE CODE QA MASTER", version="0.8.0-rc3")
+app = FastAPI(title="VIBE CODE QA MASTER", version="0.8.0-rc4")
 CATEGORIES = ("security", "functional", "performance", "resources", "hardtest")
+_browser_bootstraps = {}
+_bootstrap_lock = threading.Lock()
+
+
+def browser_login_code():
+    code = secrets.token_urlsafe(32)
+    with _bootstrap_lock:
+        _browser_bootstraps.clear()
+        _browser_bootstraps[code] = time.monotonic() + 30
+    return code
+
+
+class BrowserLoginIn(BaseModel):
+    code: str = Field(min_length=20, max_length=100)
+
+
+@app.post('/api/session/browser')
+def browser_login(body: BrowserLoginIn):
+    with _bootstrap_lock:
+        expires = _browser_bootstraps.pop(body.code, 0)
+    if expires <= time.monotonic() or not os.getenv('QA_ADMIN_TOKEN'):
+        raise HTTPException(401, '브라우저 연결이 만료됐습니다. 런처에서 검수 화면 열기를 다시 누르세요.')
+    from fastapi.responses import JSONResponse
+    return JSONResponse({'token': os.environ['QA_ADMIN_TOKEN']}, headers={'Cache-Control': 'no-store'})
 
 
 def utcnow():

@@ -70,7 +70,7 @@ class Launcher:
         tk.Button(bar, text="검수 화면 열기", command=self.open, width=19).pack(side="left", padx=5)
         tk.Button(bar, text="관리자 키 복사", command=self.copy_token, width=19).pack(side="left", padx=5)
         tk.Button(root, text="실행 검사용 폴더 승인", command=self.approve_folder, width=35).pack(pady=8)
-        tk.Label(root, text="관리자 키는 열리는 웹 화면에 붙여넣으세요.", fg="#555555").pack(pady=12)
+        tk.Label(root, text="검수 화면은 자동 연결됩니다. 필요하면 관리자 키를 복사하세요.", fg="#555555").pack(pady=12)
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
     def open(self):
@@ -99,7 +99,8 @@ class Launcher:
                 self.server = None
                 messagebox.showerror("실행 오류", str(exc))
                 return
-        webbrowser.open(self.url)
+        from app.main import browser_login_code
+        webbrowser.open(self.url + '#connect=' + browser_login_code())
 
     def copy_token(self):
         self.root.clipboard_clear()

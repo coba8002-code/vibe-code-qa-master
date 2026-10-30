@@ -19,11 +19,12 @@ def test_desktop_server_starts_without_console(monkeypatch, tmp_path):
     try:
         instance.open()
         assert not errors
-        assert opened == [instance.url]
+        assert len(opened) == 1 and opened[0].startswith(instance.url + '#connect=')
         with urllib.request.urlopen(instance.url + '/api/health', timeout=5) as response:
             assert response.status == 200
         instance.open()
-        assert opened == [instance.url, instance.url]
+        assert len(opened) == 2 and opened[1].startswith(instance.url + '#connect=')
+        assert opened[0] != opened[1]
     finally:
         if instance.server:
             instance.server.should_exit = True

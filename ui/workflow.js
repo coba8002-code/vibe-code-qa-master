@@ -1,5 +1,6 @@
 /* GitHub read-only scan history and AI remediation proposal UI. */
 document.addEventListener('DOMContentLoaded', () => {
+  connectFromLauncher();
   const section = document.createElement('div');
   section.className = 'panel';
   const heading = document.createElement('h3');
@@ -14,6 +15,22 @@ document.addEventListener('DOMContentLoaded', () => {
   section.append(heading, button, result);
   document.querySelector('main').append(section);
 });
+
+async function connectFromLauncher() {
+  const code = new URLSearchParams(location.hash.slice(1)).get('connect');
+  if (!code) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    const response = await fetch('/api/session/browser', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code}), cache: 'no-store'
+    });
+    const data = await response.json();
+    if (!response.ok) throw Error(data.detail || response.status);
+    $('token').value = data.token;
+    await refresh();
+  } catch (error) { msg('자동 연결 실패: ' + error.message); }
+}
 
 async function showReleaseReadiness() {
   try {
