@@ -19,12 +19,13 @@ from pydantic import BaseModel, Field
 from app.scanner import scan, MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES
 from app import runtime, loadtest
 from app.github_read import fetch_snapshot, SnapshotError
+from app.github_url import parse_repository
 
 ROOT = Path(__file__).resolve().parent.parent
 if getattr(__import__("sys"), "frozen", False):
     ROOT = Path(__import__("sys")._MEIPASS)
 DB_PATH = Path(os.getenv("QA_DB_PATH", str(ROOT / "data" / "qa.sqlite3")))
-app = FastAPI(title="VIBE CODE QA MASTER", version="0.8.0-rc1")
+app = FastAPI(title="VIBE CODE QA MASTER", version="0.8.0-rc2")
 CATEGORIES = ("security", "functional", "performance", "resources", "hardtest")
 
 
@@ -689,12 +690,10 @@ class GithubScanIn(BaseModel):
 
 @app.post("/api/quick-scan/github", dependencies=[Depends(admin)])
 def quick_scan_github(body: GithubScanIn):
-    match = re.fullmatch(r"https://github\.com/([A-Za-z0-9-]{1,39})/([A-Za-z0-9_.-]{1,100})(?:\.git)?/?", body.url.strip())
-    if not match:
-        raise HTTPException(400, "github.com/owner/repository URL only")
-    owner, repo = match.groups()
-    if repo.endswith(".git"):
-        repo = repo[:-4]
+    try:
+        owner, repo = parse_repository(body.url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     token = os.getenv("QA_GITHUB_TOKEN", "")
     headers = {"User-Agent": "vibe-qa-master", "Accept": "application/vnd.github+json"}
     if token:
@@ -726,4 +725,7 @@ def quick_scan_github(body: GithubScanIn):
                 items.append((name, archive.read(info)))
     except (zipfile.BadZipFile, RuntimeError) as exc:
         raise HTTPException(502, "Invalid repository archive") from exc
-    return scan(items, f"github:{owner}/{repo}")
+    result = scan(items, f"github:{owner}/{repo}")
+    result['repository_url'] = f'https://github.com/{owner}/{repo}'
+    result['notice'] += ' 입력한 링크의 저장소 기본 브랜치 전체를 검사합니다. 특정 파일·브랜치·PR만 검사하지 않습니다.'
+    return result
