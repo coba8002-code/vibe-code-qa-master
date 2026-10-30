@@ -94,7 +94,8 @@ def test_real_docker_no_tests_and_timeout(tmp_path):
     project = fixture_project(tmp_path / 'empty')
     path = Path(project['path']) / 'tests/test_calc.py'
     path.write_text('')
-    assert autofix.test_copy(Path(project['path']), 5)['state'] == 'no_tests'
+    result = autofix.test_copy(Path(project['path']), 5)
+    assert result['state'] == 'no_tests', result
     path.write_text('import time\ntime.sleep(60)')
     assert autofix.test_copy(Path(project['path']), 5)['state'] == 'timed_out'
 

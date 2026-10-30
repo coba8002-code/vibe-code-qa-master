@@ -202,9 +202,12 @@ def _run(job_id, project, duration):
         output_text = "\n".join(output)[-MAX_OUTPUT:]
         if cycles == 0 or timed_out:
             status = "timed_out"
+        elif re.search(r"Ran 0 tests\b|# tests 0\b", output_text):
+            # Recent Python versions return nonzero when discovery finds no tests.
+            status = "no_tests"
         elif exit_code != 0:
             status = "failed"
-        elif re.search(r"Ran 0 tests\b|# tests 0\b", output_text) or not re.search(r"Ran [1-9][0-9]* tests?\b|# tests [1-9][0-9]*\b", output_text):
+        elif not re.search(r"Ran [1-9][0-9]* tests?\b|# tests [1-9][0-9]*\b", output_text):
             status = "no_tests"
         elif _jobs[job_id]["mode"] == "soak" and time.monotonic() - start_time < duration:
             status = "failed"
