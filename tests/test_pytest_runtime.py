@@ -19,8 +19,11 @@ def test_real_pytest_pass_failure_and_empty(tmp_path):
     (tmp_path / 'tests').mkdir()
     test = tmp_path / 'tests/test_value.py'
     test.write_text('def test_value():\n    assert 1 == 1\n')
-    assert autofix.test_copy(tmp_path)['state'] == 'passed'
+    result = autofix.test_copy(tmp_path)
+    assert result['state'] == 'passed', result
     test.write_text('def test_value():\n    assert 1 == 2\n')
-    assert autofix.test_copy(tmp_path)['state'] == 'failed'
+    result = autofix.test_copy(tmp_path)
+    assert result['state'] == 'failed', result
     test.write_text('')
-    assert autofix.test_copy(tmp_path)['state'] == 'no_tests'
+    result = autofix.test_copy(tmp_path)
+    assert result['state'] == 'no_tests', result

@@ -1,5 +1,6 @@
 """Opt-in, bounded tests in Docker; no host-side project execution."""
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -162,6 +163,10 @@ def _run(job_id, project, duration):
                        "--mount", f"type=bind,source={directory},target=/src,readonly",
                        "--workdir", "/src", "--env", "PYTHONDONTWRITEBYTECODE=1",
                        IMAGES[project["type"]], *RECIPES[project["type"]]]
+            # Linux owner-only project directories remain readable without granting
+            # container root DAC capabilities or changing the source permissions.
+            if os.name != 'nt':
+                command[2:2] = ['--user', f'{os.getuid()}:{os.getgid()}']
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                        creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
             chunks = []
