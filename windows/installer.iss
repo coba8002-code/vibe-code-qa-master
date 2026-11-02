@@ -1,5 +1,5 @@
 #define AppName "VIBE CODE QA MASTER"
-#define AppVersion "0.9.0-rc2"
+#define AppVersion "0.9.0-rc3"
 #define AppExe "VibeQAMaster.exe"
 
 [Setup]

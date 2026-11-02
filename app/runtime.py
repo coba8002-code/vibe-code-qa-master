@@ -16,10 +16,12 @@ _jobs = {}
 _running = set()
 MAX_RUNTIME = 600
 MAX_OUTPUT = 12_000
-IMAGES = {"python": "python:3.12-slim", "node": "node:22-alpine"}
+IMAGES = {"python": "python:3.12-slim", "node": "node:22-alpine",
+          "pytest": "vibeqa-pytest:1"}
 RECIPES = {
     "python": ["python", "-m", "unittest", "discover", "-s", "tests", "-v"],
     "node": ["node", "--test"],
+    "pytest": ["python", "-m", "pytest", "tests", "-q", "-p", "no:cacheprovider"],
 }
 
 
@@ -32,6 +34,8 @@ def register(folder: str):
         raise ValueError("Python 또는 Node 프로젝트 설정 파일이 없습니다")
     project_type = "python" if ((directory / "pyproject.toml").exists() or
                                 (directory / "requirements.txt").exists()) else "node"
+    if project_type == "python" and (directory / "pytest.ini").is_file():
+        project_type = "pytest"
     project_id = uuid.uuid4().hex
     with _lock:
         _projects[project_id] = {"path": str(directory), "name": directory.name, "type": project_type}
@@ -196,7 +200,7 @@ def _run(job_id, project, duration):
             reader.join(timeout=5)
             exit_code = process.returncode
             cycles += 1
-            output.append(b"".join(chunks).decode("utf-8", errors="replace")[-1800:])
+            output.append(b"".join(chunks).decode("utf-8", errors="replace")[-MAX_OUTPUT:])
             if len(output) > 6:
                 output.pop(0)
             _update(job_id, cycles=cycles, cpu_peak_percent=round(cpu_peak, 2),
@@ -207,12 +211,12 @@ def _run(job_id, project, duration):
         output_text = "\n".join(output)[-MAX_OUTPUT:]
         if cycles == 0 or timed_out:
             status = "timed_out"
-        elif re.search(r"Ran 0 tests\b|# tests 0\b", output_text):
+        elif re.search(r"Ran 0 tests\b|# tests 0\b|no tests ran\b", output_text):
             # Recent Python versions return nonzero when discovery finds no tests.
             status = "no_tests"
         elif exit_code != 0:
             status = "failed"
-        elif not re.search(r"Ran [1-9][0-9]* tests?\b|# tests [1-9][0-9]*\b", output_text):
+        elif not re.search(r"Ran [1-9][0-9]* tests?\b|# tests [1-9][0-9]*\b|\b[1-9][0-9]* passed\b", output_text):
             status = "no_tests"
         elif _jobs[job_id]["mode"] == "soak" and time.monotonic() - start_time < duration:
             status = "failed"

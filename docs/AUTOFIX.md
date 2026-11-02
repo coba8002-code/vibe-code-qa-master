@@ -1,4 +1,4 @@
-# 0.9.0-rc2 자동 수정 및 실제 재검사
+# 0.9.0-rc3 자동 수정 및 실제 재검사
 
 실행 검사 폴더를 런처에서 등록하고 웹 화면의 **AI 자동 수정 · 재검사**에서 시작합니다.
 Codex CLI 로그인, Docker 엔진, `python:3.12-slim` 또는 `node:22-alpine` 로컬 이미지가 필요합니다.
@@ -28,3 +28,7 @@ AI 응답은 최대 180초이며 수정 결과는 테스트 통과 후에도 검
 CI 재생 테스트는 실시간 AI 호출이 아니며 CI에 개인 자격 증명을 넣지 않습니다.
 Docker가 없는 다른 PC에서는 환경 준비가 필요합니다. rc2는 일반 바탕화면 실행에서도 설치된 Codex와 Docker 경로를 찾고, 자동 갱신 중 펼쳐 둔 결과를 유지합니다.
 앱 재시작 시 진행 중 작업은 중단 상태로 표시합니다.
+
+rc3 adds pytest execution for Python modules with pytest.ini. Prepare the local image with:
+`docker build -t vibeqa-pytest:1 docker/pytest`
+The image includes pytest, httpx and PyYAML; arbitrary project dependencies and databases are not automatically provisioned. Tests still run without network access. pytest.ini is copied unchanged and is never editable by AI. Logs retain up to 12KB for useful failure context.

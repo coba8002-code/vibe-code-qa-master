@@ -17,11 +17,14 @@ jobs:
       - run: python -m compileall -q app
       - run: python -m pytest -q
       - name: Prepare isolated runtime image
-        run: docker pull python:3.12-slim
+        run: |
+          docker pull python:3.12-slim
+          docker build -t vibeqa-pytest:1 docker/pytest
       - name: Real Docker execution and AI proposal replay
         env:
           QA_DOCKER_INTEGRATION: '1'
-        run: python -m pytest tests/test_autofix.py -q --junitxml=qa-artifacts/runtime-tests.xml
+          QA_PYTEST_INTEGRATION: '1'
+        run: python -m pytest tests/test_autofix.py tests/test_pytest_runtime.py -q --junitxml=qa-artifacts/runtime-tests.xml
       - name: Security baseline (Python dependencies)
         run: |
           python -m pip install pip-audit

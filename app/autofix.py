@@ -79,7 +79,7 @@ def snapshot(directory):
                 raise ValueError('링크된 폴더는 자동 수정 대상이 될 수 없습니다')
         for name in names:
             path = Path(parent) / name
-            if name.startswith('.') or path.suffix.lower() not in {'.py', '.js', '.mjs', '.cjs', '.json', '.txt', '.toml'}:
+            if name.startswith('.') or path.suffix.lower() not in {'.py', '.js', '.mjs', '.cjs', '.json', '.txt', '.toml', '.ini'}:
                 continue
             if path.is_symlink() or not path.resolve().is_relative_to(directory):
                 raise ValueError('링크된 파일은 허용되지 않습니다')
